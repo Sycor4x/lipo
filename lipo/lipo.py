@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 # Author: David J. Elkind
-# Creation date: 2018-02-17 (YYYY-MM-DD)
+# Creation date: 2018-02-17 (year-month-day)
 
 """
 An implementation of
@@ -19,10 +19,10 @@ import os
 
 
 class LIPO(object):
-  def __init__(self, objective_functon, bounding_box, acquisition_function, stan_surrogate_model_path):
+  def __init__(self, objective_function, bounding_box, acquisition_function, stan_surrogate_model_path):
     """
 
-    :param objective_functon: function object - the function under minimization; must return a float
+    :param objective_function: function object - the function under minimization; must return a float
     :param bounding_box: iterable containing the max and min for each dimension. Order of max and min is irrelevant,
      but all outputs depend on the order in which the dimensions are supplied.
      For example, suppose you want a bounding box on (Z x Y) = [2, -2] x [-5, 5]. You could supply
@@ -37,7 +37,7 @@ class LIPO(object):
       UCB - upper confidence bound
     :param stan_surrogate_model_path:
     """
-    self._obj_fn = objective_functon
+    self._obj_fn = objective_function
     self.bounding_box = bounding_box
     self.acquisition_function = acquisition_function
 
@@ -62,13 +62,7 @@ class LIPO(object):
 
 
 if __name__ == "__main__":
-  def gramacy_lee_2012(x):
-    if not (0.5 < x < 2.5):
-      raise ValueError("provided value of x not in [0.5, 2.5].")
-    y = np.sin(10.0 * np.pi * x)
-    y /= 2 * x
-    y += np.power(x - 1.0, 4.0)
-    return y
+
 
 
   pass
