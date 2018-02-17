@@ -8,27 +8,18 @@
 
 from __future__ import division
 
-import pytest
+from numpy import isclose
 
-from ..optimization_test_functions import gramacy_lee_2012, goldstein_price, branin
-
-
-gramacy_lee_2012()
+from ..optimization_test_functions import goldstein_price, gramacy_lee_2012
 
 
-class NumericTest(unittest.TestCase):
-  pass
+def test_gramacy_lee_2012_2():
+  assert isclose(gramacy_lee_2012(2.0), 1.0)
 
 
-class GramacyLee2012Test(NumericTest):
-  pass
+def test_gramacy_lee_2012_1p5():
+  assert isclose(gramacy_lee_2012(1.5), 0.0625)
 
 
-class GoldsteinPriceTest(NumericTest):
-  pass
-
-
-class BraninTest(NumericTest):
-  pass
-
-
+def test_goldstein_price():
+  assert isclose(goldstein_price((-1, 1)), 87100)
