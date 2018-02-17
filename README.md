@@ -1,4 +1,4 @@
-# lipo
+# LIPO
 Global optimization of Lipschitz functions
 
 ## References
