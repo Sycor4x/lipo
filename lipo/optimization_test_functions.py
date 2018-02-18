@@ -11,7 +11,7 @@ from __future__ import division
 import numpy as np
 
 
-def gramacy_lee_2012(x):
+def gramacy_lee(x):
   """
   A standard 1-dimensional global optimization test function with many local minima.
   f(x) = sin(10 pi x) / (2 x) + (x - 1) ^ 4
@@ -35,13 +35,14 @@ def branin(x):
   f(x) = (x2 - 4 * 5.1 (x1 / pi)^2 + 5 x1 / pi - 6)^2 + 10 (1 - (8 pi)^-1 ) cos (x1) + 10
   (The general form doesn't specify coefficients.)
 
-  There is a global minimum at
+  There is a global minimum at [[-pi, 12.275], [pi, 2.275], [9.42478, 2.475]]
 
   :param x: tuple such that
     x[0] in [-5, 10]
     x[1] in [0, 15]
   :return: f(x)
   """
+  x = x.flatten()
   x1 = x[0]
   x2 = x[1]
   if not (-5.0 < x1 < 10.0) or not (0.0 < x2 < 15.0):
@@ -60,7 +61,9 @@ def goldstein_price(x):
   :param x:
   :return:
   """
-  if not all([(-2 < x[i] < 2) for i in [0, 1]]):
+  x = x.flatten()
+  x_test = [-2.0 < y < 2.0 for y in x]
+  if not all(x_test):
     raise ValueError("Provided value of x not in bounds for this objective function. See documentation.")
   x1 = x[0]
   x2 = x[1]
@@ -70,4 +73,4 @@ def goldstein_price(x):
   factor2a = np.power(2 * x1 - 3 * x2, 2.0)
   factor2b = 18 - 32 * x1 + 12 * x1 ** 2 + 48 * x2 - 36 * x1 * x2 + 27 * x2 ** 2
   factor2 = 30 + factor2a * factor2b
-  return factor1 * factor2
+  return np.array(factor1 * factor2).reshape((1,))
