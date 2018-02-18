@@ -1,5 +1,8 @@
+# pytest
+.pytest_cache/
+
 # can't redistribute the code in this license under its terms
-lipo/tests/optimization_test_functions.R
+tests/optimization_test_functions.R
 
 # remove .DS_Store from the fucking planet
 .DS_Store

@@ -10,7 +10,9 @@ from __future__ import division
 
 from numpy import isclose
 
-from ..optimization_test_functions import goldstein_price, gramacy_lee_2012
+from ..lipo.optimization_test_functions import goldstein_price, gramacy_lee_2012
+
+foo = gramacy_lee_2012(1.0)
 
 
 def test_gramacy_lee_2012_2():
