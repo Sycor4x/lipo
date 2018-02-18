@@ -17,6 +17,6 @@ setup(
   author='David J. Elkind',
   author_email='djelkind@gmail.com',
   url="http://www.github.com/sycor4x/lipo",
-  packages=['foo'],  # same as name
+  packages=['lipo'],  # same as name
   install_requires=['numpy==1.14.0'],
 )
