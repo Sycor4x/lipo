@@ -23,24 +23,30 @@ def test_gramacy_lee_2012_2():
 
 
 def test_goldstein_price_1():
-  assert np.isclose(goldstein_price(np.array([-1, 1])), 87100)
+  x = np.matrix([-1, 1])
+  assert np.isclose(goldstein_price(x), 87100)
 
 
 def test_goldstein_price_2():
-  assert np.isclose(goldstein_price(np.array([1, 1])), 1876)
+  x = np.matrix([1, 1])
+  assert np.isclose(goldstein_price(x), 1876)
 
 
 def test_goldstein_price_3():
-  assert np.isclose(goldstein_price(np.array([1, -1])), 7100)
+  x = np.matrix([1, -1])
+  assert np.isclose(goldstein_price(x), 7100)
 
 
 def test_branin_1():
-  assert np.isclose(branin(np.array([1, 1])), 27.70291)
+  x = np.matrix([1, 1])
+  assert np.isclose(branin(x), 27.70291)
 
 
 def test_branin_2():
-  assert np.isclose(branin(np.array([-3, 5])), 48.62023)
+  x = np.matrix([-3, 5])
+  assert np.isclose(branin(x), 48.62023)
 
 
 def test_branin_3():
-  assert np.isclose(branin(np.array([-2.5, 7.5])), 13.10694)
+  x = np.matrix([-2.5, 7.5])
+  assert np.isclose(branin(x), 13.10694)
