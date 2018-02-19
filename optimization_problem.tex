@@ -1,0 +1,92 @@
+%tex
+
+\documentclass[11pt]{article}
+\usepackage[left=0.5in,top=0.5in,right=0.5in,foot=.5in,nohead]{geometry} 
+\usepackage{amssymb, amsmath, amsthm, graphicx}
+
+\usepackage{listings}
+\usepackage{color}
+
+\definecolor{dkgreen}{rgb}{0,0.6,0}
+\definecolor{gray}{rgb}{0.5,0.5,0.5}
+\definecolor{mauve}{rgb}{0.58,0,0.82}
+
+\lstset{
+  frame=tb,
+  language=Python,
+  aboveskip=3mm,
+  belowskip=3mm,
+  showstringspaces=false,
+  columns=flexible,
+  basicstyle={\small\ttfamily},
+  numbers=none,
+  numberstyle=\tiny\color{purple},
+  keywordstyle=\color{blue},
+  commentstyle=\color{gray},
+  stringstyle=\color{gray},
+  breaklines=true,
+  breakatwhitespace=true,
+  tabsize=3
+}
+
+\begin{document}
+
+\begin{center}
+  \textbf{David J. Elkind - LIPO} \\
+\end{center}
+
+I'm interested in estimating the Lipschitz constant $k$ for functions which approximate as Lipschitz. When the functions are noisy, they can't be Lipschitz, but adding a noise term $s$ can make the functions behave more nicely; including the large penalty $10^6$ for $s$ forces it to often be 0.
+
+The function of interest is $f$ and it is only observed via some finite number of points $(x_i, f(x_i))$ for $i = 1,2,\dots t$.
+
+Define
+\begin{align}
+U(y) &= \min_{i \in 1,2,\dots t} \left[ f(x_i) + \sqrt{s_i + (y - x_i)^\top K (y - x_i)} \right]
+\end{align}
+
+One way to estimate $k$ is to optimize the following program (using a different $k_i$ for each coordinate):
+\begin{align}
+  \min_{K, s}~~& ||K||_F^2 + 10^6 \sum_{i=1}^t s_i^2 \\
+  \text{s.t.}~~& U(x_i) \ge f(x_i) i \in \{1,2, \dots t\} \\
+  & s_i \ge 0 \forall i \in \{1,2, \dots t\} \\
+  & K_{i,j} \ge 0 \forall i,j \in \{1, 2, \dots d\}^2 \\
+  & \text{K is a diagonal matrix.} 
+\end{align}
+
+This clearly can be rewritten as 
+
+\begin{align}
+  \min_{k, s}~~& k^\top k + 10^6 \cdot s^\top s \\
+  \text{s.t.}~~& U(x_i) \ge f(x_i) ~ i \in \{1,2, \dots t\} \\
+  & s_i \ge 0 ~ \forall i \in \{1,2, \dots t\} \\
+  & k_{i} \ge 0 ~ \forall i \in \{1, 2, \dots d\}^2 
+\end{align}
+
+But it's not at all clear how to me actually \textit{do} the optimization, since the  minimization objective is not obviously a QP. I guess one way to do it would be to roll the two summands together and write
+
+\begin{align}
+  \min_{k, s}~~& \begin{bmatrix}k \\ s \end{bmatrix}^\top A \begin{bmatrix}k \\ s \end{bmatrix} \\
+  \text{s.t.}~~& U(x_i) \ge f(x_i) ~ i \in \{1,2, \dots t\} \\
+  & s_i \ge 0 ~ \forall i \in \{1,2, \dots t\} \\
+  & k_{i} \ge 0 ~ \forall i \in \{1, 2, \dots d\}^2 
+\end{align}
+
+Just for convenience, we can rewrite $U$ in terms of $k$:
+\begin{align}
+U(y) &= \min_{i \in 1,2,\dots t} \left[ f(x_i) + \sqrt{s_i + ||k^\top (y - x_i)||_2^2} \right]
+\end{align}
+and observe that all I've done is move stuff around so that $A$ is given by 
+\begin{align}
+  A_{ij} &=
+  \begin{cases}
+    1 &\forall i = j \land 1 \le i \le d \\
+    10^6 &\forall i = j \land d < i \le t + d \\
+    0 &\text{otherwise}
+  \end{cases},
+\end{align}
+i.e. $A$ is a diagonal matrix with 1s corresponding to the elements of $k$ and $10^6$ corresponding to the elements of $s$.
+
+This is ``nicer'' in a sense, since it's \textit{obviously} a QP. But what's less-nice is that $U$, and therefore its corresponding constraint, is not a linear function, owing to the fact that $s$ and $k$ both appear inside of the square root.
+
+So given that this program is not a QP with linear constraints, what would the appropriate tool be to solve this problem? More specifically, what python library would you recommend using?
+\end{document}

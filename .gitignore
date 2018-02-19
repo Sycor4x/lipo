@@ -1,3 +1,7 @@
+# latex artifacts
+*.aux
+*.synctex.gz
+
 # pytest
 .pytest_cache/
 
