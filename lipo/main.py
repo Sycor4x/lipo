@@ -14,22 +14,28 @@ with some experimental modifications also implemented.
 
 from __future__ import division
 
-from scipy.spatial.distance import euclidean, cdist
+import argparse
+import quadprog as qp
+
 import numpy as np
+from scipy.spatial.distance import euclidean, cdist, sqeuclidean
+
 import optimization_test_functions as otf
 
-import argparse
 
-
-def verify_positive_int(a):
+def verify_int(a, minimum=None, maximum=None):
   if not isinstance(a, int):
-    raise ValueError("niter must be positive int")
-  if a < 1:
-    raise ValueError("niter must be positive int")
+    raise ValueError("niter must be int")
+  if minimum is not None:
+    if a < minimum:
+      raise ValueError("niter must be greater than %s, but supplied value is %d" % (minimum, a))
+  if maximum is not None:
+    if a > maximum:
+      raise ValueError("niter must be less than %s, but supplied value is %d" % (maximum, a))
 
 
-class LIPO(object):
-  def __init__(self, objective_function, bounding_box, x_star=None):
+class SimpleLIPO(object):
+  def __init__(self, objective_function, bounding_box, minimize=False, x_star=None):
     # TODO - make x_star do something
     """
     IMPORTANT NOTE: this procedure is maximization; can implicitly do minimization of some function f by providing -f.
@@ -43,6 +49,7 @@ class LIPO(object):
        np.array([[2,-2],[5,-5])
      or similar as each of these will be iterated in the order of first [-2,2], and second [-5,5].
     """
+    self._minimize = minimize
     self._obj_fn = objective_function
     self._niter = 0
     self._t = 0
@@ -56,14 +63,19 @@ class LIPO(object):
     self._d = len(box)
     self.box = box
 
-    self.x = np.zeros((0, self.d))
-    self.y = np.zeros((0, 1))
-    self.k = -1
+    self.x = np.array([]).reshape((-1, self.d))
+    self.y = np.array([])
+    self.k = 0.0
+    self.sigma = None
     self.distance_lookup = dict()
 
   @property
   def t(self):
     return self._t
+
+  @property
+  def minimize(self):
+    return self._minimize
 
   @property
   def niter(self):
@@ -75,7 +87,14 @@ class LIPO(object):
 
   @property
   def obj_fn(self):
-    return self._obj_fn
+    if self.minimize:
+      return lambda x: -self._obj_fn(x)
+    else:
+      return self._obj_fn
+
+  def update_x_y(self, new_x, new_y):
+    self.x = np.vstack((self.x, new_x))
+    self.y = np.append(self.y, new_y)
 
   def sample_next(self, size=1):
     """
@@ -88,80 +107,76 @@ class LIPO(object):
       for i in range(self.d):
         new_x[i] = np.random.uniform(low=self.box[i, 0], high=self.box[i, 1], size=1)
       out = np.vstack((out, new_x))
-    return out.reshape((size, self.d))
+    return np.matrix(out).reshape((size, self.d))
 
-  def decision_function(self, new_x):
-    self.set_k()
-    upper_bound = float("inf")
-    for i in range(len(self.x)):
-      ubi = self.y[i, 0] + self.k * euclidean(new_x, self.x[i, :])
-      upper_bound = min(upper_bound, ubi)
-    condition_test = upper_bound >= np.max(self.y)
-    return condition_test
-
-  def set_k(self):
-    """
-    Estimates the Lipschitz constant.
-    """
-    # TODO - replace this with an actual estimator
-    k_new = self.k
-
-    for i in range(len(self.x)):
+  def update_distances(self):
+    for i in range(len(self.x) - 1):
       for j in range(i + 1, len(self.x)):
         try:
-          w = self.distance_lookup[(i, j)]
+          self.distance_lookup[(i, j)]
         except KeyError:
-          xi, xj = self.x[i, :], self.x[j, :]
-          w = euclidean(xi, xj)
+          w = euclidean(self.x[i, :], self.x[j, :])
           self.distance_lookup.update({(i, j): w})
-        # print("number of distances: %d" % len(self.distance_lookup))
-        yi, yj = self.y[i, 0], self.y[j, 0]
-        k_tilde = np.abs(yi - yj) / w
-        k_new = max(k_tilde, k_new)
-    self.k = k_new * 1.5
 
-  def upper_bound(self, z):
-    # upper_bound_function = self.y + self.k * cdist(z, self.x)
-    print(self.y)
-    print(self.k * cdist(z, self.x))
-    upper_bound_function = self.k * cdist(z, self.x) + self.y
+  def get_constraints(self, n):
+    self.update_distances()
+    C = [[1.0] + (n - 1) * [0.0]]
+    # b = [self.k]
+    b = [0.0]
+    # constraints on k, sigma[i]
+    for k in range(1, n):
+      C_new = n * [0.0]
+      C_new[k] = 1.0
+      C.append(C_new)
+      b.append(0.0)
+    # constraints U(x_i) >= f(x_i)
+    # Only need to do all combinations i,j instead of all pairs because the constraints are symmetric wrt i, j.
+    for i in range(len(self.x) - 1):
+      for j in range(i + 1, len(self.x)):
+        C_new = n * [0.0]
+        C_new[0] = self.distance_lookup[(i, j)] ** 2
+        C_new[j + 1] = 1.0
+        C.append(C_new)
+        b.append((self.y[i] - self.y[j]) ** 2)
+    C_out = np.matrix(C).T
+    b_out = np.array(b)
+    return C_out, b_out
 
-    print(upper_bound_function.shape)
-    print(upper_bound_function)
-    print(upper_bound_function.min(axis=1))
-    asdf
-    return upper_bound_function.min()
+  def set_k_sigma(self):
+    n = 1 + len(self.x)
+    G = 1e6 * np.eye(n)
+    G[0, 0] = 1.0
+    C, b = self.get_constraints(n)
+    a = np.zeros(n)
+    qp_soln = qp.solve_qp(G=G, a=a, C=C, b=b, meq=0)
+    x = qp_soln[0]
+    self.k = float(x[0])
+    self.sigma = x[1:]
 
-  def fit(self, niter=60, nstart=6):
-    verify_positive_int(niter)
-    verify_positive_int(nstart)
-    self._niter += niter
+  def lipschitz_surrogate_fn(self, z):
+    Uz_proto = self.y + np.sqrt(self.sigma + self.k * cdist(z, self.x, sqeuclidean))
+    Uz = Uz_proto.min(axis=1)
+    ndz = Uz.argmax()
+    return z[ndz]
 
-    i = 0
+  def explore(self, n_explore):
+    z = self.sample_next(n_explore)
+    new_x = self.lipschitz_surrogate_fn(z)
+    new_y = self.obj_fn(new_x)
+    self.update_x_y(new_x=new_x, new_y=new_y)
+
+  def exploit(self):
+    return
+
+  def fit(self, niter=55, nstart=3, explore_batch=100):
     for i in range(nstart):
       new_x = self.sample_next()
       new_y = self.obj_fn(new_x)
-      self.x = np.vstack((self.x, new_x))
-      self.y = np.vstack((self.y, new_y))
+      self.update_x_y(new_x=new_x, new_y=new_y)
 
-    for k in range(i, self.niter + nstart):
-      new_x = self.sample_next()
-
-      z = optimizer.sample_next()
-      fz = optimizer.upper_bound(self.x)
-      print(z, fz)
-
-      if self.decision_function(new_x):
-        self._t += 1
-        self.x = np.vstack((self.x, new_x))
-        new_y = self.obj_fn(new_x)
-        self.y = np.vstack((self.y, new_y))
-
-    best_i = np.argmax(self.y)
-    best_x = self.x[best_i, :]
-    best_y = self.y[best_i, 0]
-    print(self.t)
-    return best_x, best_y
+    for j in range(niter):
+      self.set_k_sigma()
+      self.explore(explore_batch)
 
 
 def parse_args():
@@ -200,16 +215,6 @@ if __name__ == "__main__":
   args = parse_args()
 
   active_fn = function_options[args.function_name]
-  optimizer = LIPO(**active_fn)
-  x, y = optimizer.fit()
+  optimizer = SimpleLIPO(**active_fn, minimize=True)
 
-  z = optimizer.sample_next()
-  fz = optimizer.upper_bound(z)
-  print(z, fz)
-
-  x = x.reshape((1, -1))
-  y *= -1.0
-  x_star = active_fn["x_star"]
-  miss = np.min(cdist(x, x_star))
-  print(u"||x_best - x*||\u2082 = %.4f" % miss)
-  print(r"f(x_best) - f(x*) = %.4f" % (y - active_fn["objective_function"](x_star)))
+  optimizer.fit(niter=10, explore_batch=5)
