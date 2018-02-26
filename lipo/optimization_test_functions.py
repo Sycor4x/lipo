@@ -42,7 +42,10 @@ def branin(x):
     x[1] in [0, 15]
   :return: f(x)
   """
-  x = x.A.flatten()
+  try:
+    x = x.A.flatten()
+  except AttributeError:
+    x = x.flatten()
   x1 = x[0]
   x2 = x[1]
   if not (-5.0 < x1 < 10.0) or not (0.0 < x2 < 15.0):
@@ -61,7 +64,10 @@ def goldstein_price(x):
   :param x:
   :return:
   """
-  x = x.A.flatten()
+  try:
+    x = x.A.flatten()
+  except AttributeError:
+    x = x.flatten()
   x_test = [-2.0 < y < 2.0 for y in x]
   if not all(x_test):
     raise ValueError("Provided value of x not in bounds for this objective function. See documentation.")

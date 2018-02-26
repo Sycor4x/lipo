@@ -19,6 +19,8 @@ import quadprog as qp
 
 import numpy as np
 from scipy.spatial.distance import euclidean, cdist, sqeuclidean
+import scipy.optimize as sp_opt
+import scipy.linalg as sp_la
 
 import optimization_test_functions as otf
 
@@ -117,6 +119,7 @@ class SimpleLIPO(object):
         except KeyError:
           w = euclidean(self.x[i, :], self.x[j, :])
           self.distance_lookup.update({(i, j): w})
+          self.distance_lookup.update({(j, i): w})
 
   def get_constraints(self, n):
     self.update_distances()
@@ -130,9 +133,9 @@ class SimpleLIPO(object):
       C.append(C_new)
       b.append(0.0)
     # constraints U(x_i) >= f(x_i)
-    # Only need to do all combinations i,j instead of all pairs because the constraints are symmetric wrt i, j.
-    for i in range(len(self.x) - 1):
-      for j in range(i + 1, len(self.x)):
+    # NB - constraints are not symmetric wrt i,j due to sigma[j]
+    for i in range(len(self.x)):
+      for j in [jj for jj in range(len(self.x)) if jj != i]:
         C_new = n * [0.0]
         C_new[0] = self.distance_lookup[(i, j)] ** 2
         C_new[j + 1] = 1.0
@@ -156,27 +159,29 @@ class SimpleLIPO(object):
   def lipschitz_surrogate_fn(self, z):
     Uz_proto = self.y + np.sqrt(self.sigma + self.k * cdist(z, self.x, sqeuclidean))
     Uz = Uz_proto.min(axis=1)
-    ndz = Uz.argmax()
-    return z[ndz]
+    return Uz
 
   def explore(self, n_explore):
     z = self.sample_next(n_explore)
-    new_x = self.lipschitz_surrogate_fn(z)
+    Uz = self.lipschitz_surrogate_fn(z)
+    new_x = z[Uz.argmax()]
     new_y = self.obj_fn(new_x)
-    self.update_x_y(new_x=new_x, new_y=new_y)
+    return new_x, new_y
 
-  def exploit(self):
-    return
+  def report_results(self):
+    if self.minimize:
+      self.y *= -1
+      best_ndx = self.y.argmin()
+    else:
+      best_ndx = self.y.argmax()
+    return self.x[best_ndx, :], self.y[best_ndx]
 
-  def fit(self, niter=55, nstart=3, explore_batch=100):
-    for i in range(nstart):
-      new_x = self.sample_next()
-      new_y = self.obj_fn(new_x)
-      self.update_x_y(new_x=new_x, new_y=new_y)
-
+  def fit(self, niter=60, explore_batch=100):
     for j in range(niter):
       self.set_k_sigma()
-      self.explore(explore_batch)
+      new_x, new_y = self.explore(explore_batch)
+      self.update_x_y(new_x=new_x, new_y=new_y)
+    return self.report_results()
 
 
 def parse_args():
@@ -195,17 +200,17 @@ def parse_args():
 
 function_options = {
   "goldstein_price": {
-    "objective_function": lambda x: -otf.goldstein_price(x),
+    "objective_function": otf.goldstein_price,
     "bounding_box": [[-2.0, 2.0], [-2.0, 2.0]],
     "x_star": np.array([[0.0, -1.0]])
   },
   "branin": {
-    "objective_function": lambda x: -otf.branin(x),
+    "objective_function": otf.branin,
     "bounding_box": [[-5, 10], [0, 15]],
     "x_star": np.array([[-np.pi, 12.275], [np.pi, 2.275], [9.42478, 2.475]])
   },
   "gramacy_lee": {
-    "objective_function": lambda x: -otf.gramacy_lee(x),
+    "objective_function": otf.gramacy_lee,
     "bounding_box": [[0.5, 2.5]],
     "x_star": np.array([0.548563444114526])
   }
@@ -217,4 +222,11 @@ if __name__ == "__main__":
   active_fn = function_options[args.function_name]
   optimizer = SimpleLIPO(**active_fn, minimize=True)
 
-  optimizer.fit(niter=10, explore_batch=5)
+  x_best, y_best = optimizer.fit(niter=10, explore_batch=5)
+  x_star = active_fn["x_star"]
+  f_x_star = active_fn["objective_function"](x_star)
+
+  print(x_star, f_x_star)
+  print(x_best, y_best)
+  #
+  print(optimizer.y)
