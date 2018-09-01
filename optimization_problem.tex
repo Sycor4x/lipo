@@ -53,40 +53,15 @@ One way to estimate $k$ is to optimize the following program (using a different 
   & \text{K is a diagonal matrix.} 
 \end{align}
 
-This clearly can be rewritten as 
-
+Expressing a signle constraint, we have 
 \begin{align}
-  \min_{k, s}~~& k^\top k + 10^6 \cdot s^\top s \\
-  \text{s.t.}~~& U(x_i) \ge f(x_i) ~ i \in \{1,2, \dots t\} \\
-  & s_i \ge 0 ~ \forall i \in \{1,2, \dots t\} \\
-  & k_{i} \ge 0 ~ \forall i \in \{1, 2, \dots d\}^2 
+U(x_i) &\ge f(x_i) ~\forall i = 1, 2, \dots, t \\
+\implies
+f(x_j) + \sqrt{s_j + (x_i - x_j)^\top K (x_i - X_j)} &\ge f(x_i) \\
+s_j + (x_i - x_j)^\top K (x_i - x_j) &\ge \left(f(x_i) - f(x_j)\right)^2\\
 \end{align}
+Which is linear in $s$ and $K$. Moreover, this is exactly the definition of Lipschitz continuity when $s_j =0 $ (hooray!).
 
-But it's not at all clear how to me actually \textit{do} the optimization, since the  minimization objective is not obviously a QP. I guess one way to do it would be to roll the two summands together and write
+This is a little bit of a bummer, though, since this isn't symmetric in $i,j$ due to the presence of the $s_j$. This implies that there are $t^2 > \binom{t}{2}$ constraints, which might be too many for large problems.
 
-\begin{align}
-  \min_{k, s}~~& \begin{bmatrix}k \\ s \end{bmatrix}^\top A \begin{bmatrix}k \\ s \end{bmatrix} \\
-  \text{s.t.}~~& U(x_i) \ge f(x_i) ~ i \in \{1,2, \dots t\} \\
-  & s_i \ge 0 ~ \forall i \in \{1,2, \dots t\} \\
-  & k_{i} \ge 0 ~ \forall i \in \{1, 2, \dots d\}^2 
-\end{align}
-
-Just for convenience, we can rewrite $U$ in terms of $k$:
-\begin{align}
-U(y) &= \min_{i \in 1,2,\dots t} \left[ f(x_i) + \sqrt{s_i + ||k^\top (y - x_i)||_2^2} \right]
-\end{align}
-and observe that all I've done is move stuff around so that $A$ is given by 
-\begin{align}
-  A_{ij} &=
-  \begin{cases}
-    1 &\forall i = j \land 1 \le i \le d \\
-    10^6 &\forall i = j \land d < i \le t + d \\
-    0 &\text{otherwise}
-  \end{cases},
-\end{align}
-i.e. $A$ is a diagonal matrix with 1s corresponding to the elements of $k$ and $10^6$ corresponding to the elements of $s$.
-
-This is ``nicer'' in a sense, since it's \textit{obviously} a QP. But what's less-nice is that $U$, and therefore its corresponding constraint, is not a linear function, owing to the fact that $s$ and $k$ both appear inside of the square root.
-
-So given that this program is not a QP with linear constraints, what would the appropriate tool be to solve this problem? More specifically, what python library would you recommend using?
 \end{document}
